@@ -77,6 +77,33 @@ class NCE(nn.Module):
 
         return loss / (len(pred_cost)*len(self.solpool))
 
+class NCE_MAP(NCE):
+    """
+        An autograd module for the noise contrastive MAP estimation loss.
+
+        For the noise contrastive loss, the constraints are known and fixed,
+        but the cost vector needs to be predicted from contextual data.
+    """
+
+    
+    def forward(self, pred_cost, true_cost, true_sol):
+        """
+        Forward pass
+        """
+        # convert tensor
+        cp = pred_cost.detach().to("cpu").numpy()
+
+        if np.random.uniform() <= self.solve_ratio:
+            sol = _solve_in_forward(cp, self.optmodel, self.processes, self.pool)
+            self.solpool = np.concatenate((self.solpool, sol))
+
+        loss = 0
+        for i in range(len(pred_cost)):
+            obj_cp_i = torch.matmul(  (pred_cost[i] - true_cost[i]), true_sol[i])
+            solpool_obj_cp_i = torch.matmul((pred_cost[i] - true_cost[i]), torch.from_numpy(self.solpool.T.astype(np.float32)))
+            loss += self.optmodel.modelSense * (obj_cp_i - solpool_obj_cp_i).max()
+
+        return loss / (len(pred_cost)*len(self.solpool))
 
 def _solve_in_forward(cp, optmodel, processes, pool):
     """

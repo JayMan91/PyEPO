@@ -61,20 +61,23 @@ if __name__ == "__main__":
     optimizer = torch.optim.Adam(predmodel.parameters(), lr=1e-2)
     # init SPO+ loss
     spo = pyepo.func.SPOPlus(optmodel, processes=4)
+    
 
     # build dataset
     dataset = pyepo.data.dataset.optDataset(optmodel, x, c)
+    nce = pyepo.func.NCE_MAP(optmodel, processes=4, dataset= dataset)
     # get data loader
     dataloader = DataLoader(dataset, batch_size=32, shuffle=True)
 
     # training
-    num_epochs = 100
+    num_epochs = 10
     for epoch in range(num_epochs):
         for data in dataloader:
             x, c, w, z = data
             # forward pass
             cp = predmodel(x)
-            loss = spo.apply(cp, c, w, z).mean()
+            # loss = spo(cp, c, w, z).mean()
+            loss = nce(cp, c, w).mean()
             # backward pass
             optimizer.zero_grad()
             loss.backward()
